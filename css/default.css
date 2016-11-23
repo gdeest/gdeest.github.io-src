@@ -2,7 +2,16 @@ body {
     color: black;
     font-size: 16px;
     margin: 0px auto 0px auto;
-    width: 600px;
+    width: 980px;
+    line-height: 1.6em;
+}
+
+#content, #footer {
+}
+
+li, p {
+    text-align: justify;
+    font-family: 'Open Sans', sans-serif;
 }
 
 div#header {
