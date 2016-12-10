@@ -5,11 +5,9 @@ author: Gaël Deest
 
 ## Prolegomena
 
-This post is the first in a series exploring elementary notions of category
-theory in the [Coq](https://coq.inria.fr) proof assistant. You may read it as an
-experiment report, an introductory course in category theory *or* a showcase of
-the power of mechanized reasoning and dependent types. No prior knowledge of Coq
-or category theory should be needed to follow along the definitions and get a
+In this series, we will explore elementary notions of category theory in
+the [Coq](https://coq.inria.fr) proof assistant. No prior knowledge of Coq or
+category theory should be required to follow along the definitions and get a
 general idea of what is going on, but some familiarity with a statically-typed
 functional programming language is assumed. In particular, due to the nature of
 the topic, we expect this series to be of particular interest to Haskell
@@ -27,12 +25,19 @@ the
 proofs and programs, that forms the basis of modern proof assistants, will shed
 a different light on your day-to-day programming tasks and make you a better
 functional programmer, much like learning Haskell can help an imperative
-programmer apply sane design principles to make sense of an otherwise chaotic
-world.
+programmer apply saner design principles in his language of choice.
 
-## Definition of a Category
+## Mathematical Defintion of a Category
 
-A [category](https://en.wikipedia.org/wiki/Category_(mathematics)) $\mathcal{C}$ consists of:
+We start by recalling the definition of
+a [category](https://en.wikipedia.org/wiki/Category_(mathematics)). Categories
+are the proper framework to define and talk about composition. Simply speaking,
+it consists in a class of points and arrows between those points.
+Whenever an arrow starts where another ends, we can talk about their
+*composition*. We sprinkle a few axioms on top of that intuition to make it a
+reasonably useful mathematical theory - and that's about it !
+
+More formally, a category $\mathcal{C}$ is defined by:
 
   - A class of *objects* (or *points*), denoted $\mathrm{ob}(\mathcal{C})$.
   - For each pair of objects $a,b: \mathrm{ob}(\mathcal C)$, a class of directed
@@ -51,7 +56,7 @@ $x: \mathrm{ob}(\mathcal C)$.
     we thus have a morphism $g \circ f: \mathrm{hom}(a,c)$. 
 
 The definition of composition might be reminiscent of the composition of
-functions. That is not accidental: we can (and will) define a category whose
+functions. That is not an accident: we can (and will) define a category whose
 objects are *sets* and morphisms *functions*. In that category, composition is
 just the usual composition of functions you know and love. Although that is a
 good first mental model, please don't make the mistake of believing that
@@ -66,6 +71,8 @@ intuitive axioms:
    (g \circ f) = (h \circ g) \circ f.$$
 2. **Identity is neutral wrt left and right composition:** For any objects $a,
    b$ and morphism $f: \mathrm{hom}(a,b)$, $$f \circ \mathrm{id}(a) = \mathrm{id}(b) \circ f = f.$$
+
+## Definition in Coq
 
 That definition can be easily translated to a Coq record:
 
@@ -100,7 +107,7 @@ Polymorphic Record Category: Type :=
 
 That may be a bit much to swallow all at once, so let us break it down:
 
-```coq
+```
 Polymorphic Record Category: Type :=
   {
 ```
@@ -111,12 +118,12 @@ field is translated to an accessor function that allows you to extract
 information without pattern-matching. As for the *Polymorphic* keyword, it
 enables *universe polymorphism* for the type we are defining. If you don't have
 a clue of what I am talking about, you can safely ignore it. In fact, it is not
-necessary for the examples we will define in this post.
+necessary for the examples we define in this post [^1].
 
 ```
     ob: Type;
 ```
-Here, we specify a field *obj* of type *Type*, which corresponds to the type of objects in the category.
+Here, we specify a field *obj* of type *Type*, which corresponds to the type of objects of the category.
 Whenever we have a category *C: Category*, we can retrieve the type of its objects with *ob C*.
 
 ```
@@ -124,13 +131,13 @@ Whenever we have a category *C: Category*, we can retrieve the type of its objec
 ```
 
 The field *hom* is a type constructor taking two elements of type *ob* and
-returning the *Type* of arrows between those objects. In this context, *ob* is
-not a function of type *Category -> Type* ; it simply refers to the value of the
-field in the same category. So, for any category *C: Category*, *hom C* has
-type: *ob C -> ob C -> Type*.
+returning the *Type* of arrows between those objects. One syntactic (but
+important) remark: in this context, *ob* is not a function of type *Category ->
+Type* ; it simply refers to the value of the field in the same category. So, for
+any category *C: Category*, *hom C* has type: *ob C -> ob C -> Type*.
 
 In general, the definition of a record field may depend on previously defined
-fields in the current definition.
+fields in the same record.
 
 ```
     comp {a b c}: (hom b c) -> (hom a b) -> (hom a c);
@@ -164,6 +171,10 @@ whenever possible from context, we ask Coq to infer them automatically. Coq
 features many such facilities. While they may be be daunting at first and make
 Coq programs hard to understand for a novice, they can greatly improve
 readability.
+
+That implicitness is limited to the rest of the definition, though. For a reason
+I don't fully understand, arguments *a*, *b* and *c* are *explicit* outside that
+scope.
 
 We now proceed to define the axioms of a category:
 
@@ -205,4 +216,92 @@ maps to our definition:
   itself.
 - Composition of arrows is simply composition of functions.
 
+That should be simple enough to implement. Let's start by defining the
+identities and composition as separate functions:
 
+```coq
+Definition set_id (A:Set): (A -> A) := fun a => a.
+
+Definition set_compose {A B C: Set} (g: B -> C) (f: A -> B) := fun x => g (f x).
+```
+
+So, *set_id* takes a *Set* and returns the identity function for that *Set*,
+while *set_compose* takes three *Sets*, two functions between them and returns
+their composition. Since the *Set* arguments can easily be inferred from the
+type of functions *g* and *f*, we define them as implicit to remove
+clutter. Easy enough !
+
+Now, we have to actually prove the category axioms. We do so by definining and
+proving two lemmas, *set_comp_assoc* and *set_id_comp_neutral*. The statement of
+our lemmas are immediately followed by their proof, which, in this occasion, can
+be automatically built for us by Coq using the *auto* tactic.
+
+```coq
+(* Composition of functions is associative. *)
+Lemma set_comp_assoc: forall (a b c d: Set), forall (f: a -> b) (g: b -> c) (h: c -> d),
+      set_compose h (set_compose g f) = set_compose (set_compose h g) f.
+  auto.
+Qed.
+
+(* An identity function is a neutral element for left and right composition. *)
+Lemma set_id_comp_neutral: forall a b: Set, forall f: a -> b,
+      set_compose f (set_id a) = f /\ set_compose (set_id b) f = f.
+  auto.
+Qed.
+```
+
+Let us reflect a bit more on what is going on here. Stating a lemma (or a
+theorem) and giving its proof is actually *exactly the same thing* as defining a
+type *and* a value of that type. That's the core of the Curry-Howard
+isomorphism: proofs and programs are just the same concept seen from different
+viewpoints. An element: *x: T* is a proof of *T*, seen as a proposition. That's
+why types and propositions can both be built with *forall*, seen in one case as
+a dependent product, in the other, as the usual universal quantifier, $\forall$.
+In fact, there is absolutely no difference.
+
+Actually, instead of using *Lemma* and the tactic language, could have defined
+our proof as a function taking all the variables involved in the theorem as a
+arguments and returning an equality proof:
+
+```coq
+Definition set_comp_assoc: forall (a b c d: Set), forall (f: a -> b) (g: b -> c) (h: c -> d),
+      set_compose h (set_compose g f) = set_compose (set_compose h g) f :=
+  fun a b c d f g h  => eq_refl (set_compose h (set_compose g f)).
+```
+
+The details of that (very short) proof are not that important. I just want to
+stress out that, while Coq offers a lot of syntactic sugar, the underlying
+theory is just a very small, very flexible kernel where proofs and programs are
+one and the same.
+
+Well, almost the same. In Coq, there is a subtle difference between propositions
+and conventional types: by construction, the type (or kind, if you wish) of a
+proposition is *Prop*. This is just a nifty trick used to ensure that proofs can
+be fully erased when extracting Coq programs to OCaml or Haskell[^2]. But it is
+more of practical than theoretical importance.
+
+Finally, we have all the ingredients to build our first category:
+
+```coq
+Definition SET : Category :=
+  {|
+    ob              := Set;
+    hom             := fun a b => a -> b;
+    id              := set_id;
+    comp            := @set_compose;
+    comp_assoc      := set_comp_assoc;
+    id_comp_neutral := set_id_comp_neutral
+  |}.
+````
+
+Hooray ! The @ before *set_compose* is just there to make all arguments explicit
+in *set_compose* and make its type match with comp (recall that all *comp*
+arguments are explicit outside the definition of the record). Other than that,
+everything should be pretty obvious.
+
+In the next parts, we will define some more interesting examples such as Kleisli
+categories, and the category of categories (!), along with the corresponding morphisms:
+functors !
+
+[^1]: It will be, in the next part. Stay tuned !
+[^2]: See [this paper](https://www.irif.fr/~letouzey/download/letouzey_extr_cie08.pdf) for more information.
