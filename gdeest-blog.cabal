@@ -18,5 +18,5 @@ executable blog
   ghc-options:         -threaded
   build-depends:       base == 4.*,
                        containers,
-                       hakyll == 4.7.*,
+                       hakyll,
                        pandoc
