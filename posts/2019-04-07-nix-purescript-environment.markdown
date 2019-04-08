@@ -23,8 +23,8 @@ reason not to use it. Moreover:
 * While you don't know it today, you might need other dependencies later on.
 * You can always use niv to set up the initial project and drop the dependence
   after the fact, then tweaking the generated nix files to your heart's content.
-  It is all very simple ; you are not really committing to particular tool or
-  philosophy.
+  It is all very simple ; you are not really committing to any particular tool
+  or philosophy.
 
 You can install niv with:
 ```text
